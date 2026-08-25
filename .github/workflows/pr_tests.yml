@@ -1,0 +1,169 @@
+# Run Puppet checks and test matrix on Pull Requests
+# ------------------------------------------------------------------------------
+#             NOTICE: **This file is maintained with puppetsync**
+#
+# This file is updated automatically as part of a puppet module baseline.
+#
+# The next baseline sync will overwrite any local changes to this file!
+#
+# ==============================================================================
+#
+# https://docs.github.com/en/actions/reference/events-that-trigger-workflows
+#
+---
+name: PR Tests
+'on':
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  puppet-syntax:
+    name: 'Puppet Syntax'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: "Install Ruby 3.2"
+        uses: ruby/setup-ruby@v1  # ruby/setup-ruby@ec106b438a1ff6ff109590de34ddc62c540232e0
+        with:
+          ruby-version: 3.2.11
+          bundler-cache: true
+      - run: "bundle exec rake syntax"
+
+  puppet-style:
+    name: 'Puppet Style'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: "Install Ruby 3.2"
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.2.11
+          bundler-cache: true
+      - run: "bundle exec rake lint"
+      - run: "bundle exec rake metadata_lint"
+
+  ruby-style:
+    name: 'Ruby Style'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: "Install Ruby 3.4"
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.9
+          bundler-cache: true
+      - run: |
+          bundle show
+          bundle exec rake rubocop
+
+  file-checks:
+    name: 'File checks'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 'Install Ruby 3.4'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.9
+          bundler-cache: true
+      - run: bundle exec rake check:dot_underscore
+      - run: bundle exec rake check:test_file
+
+  reference:
+    name: 'REFERENCE.md freshness'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 'Install Ruby 3.4'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.9
+          bundler-cache: true
+      - name: 'Check REFERENCE.md freshness'
+        run: bundle exec rake validate:strings
+
+  releng-checks:
+    name: 'RELENG checks'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 'Install Ruby 3.4'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.9
+          bundler-cache: true
+      - name: 'Tags and changelogs'
+        run: |
+          bundle exec rake pkg:check_version
+          bundle exec rake pkg:compare_latest_tag[,true]
+          bundle exec rake pkg:create_tag_changelog
+      - name: 'Test-build the Puppet module'
+        run: 'bundle exec rake pupmod:build'
+
+  spec-tests:
+    name: 'Puppet Spec'
+    needs: [puppet-syntax]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        puppet:
+          - label: 'OpenVox 8.x (Ruby 3.2)'
+            puppet_version: '~> 8.0'
+            ruby_version: '3.2'
+            experimental: false
+          - label: 'OpenVox 8.x (Ruby 3.4)'
+            puppet_version: '~> 8.0'
+            ruby_version: '3.4'
+            experimental: false
+          # OpenVox 9 is unreleased; preview the future Ruby 4.0 / OpenVox 9
+          # combo by running the OpenVox 8 gem on Ruby 4.0.
+          - label: 'OpenVox 9.x preview (Ruby 4.0, OpenVox 8 gem)'
+            puppet_version: '~> 8.0'
+            ruby_version: '4.0'
+            experimental: false
+      fail-fast: false
+    env:
+      PUPPET_VERSION: ${{matrix.puppet.puppet_version}}
+    steps:
+      - uses: actions/checkout@v7
+      - name: 'Install Ruby ${{matrix.puppet.ruby_version}}'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{matrix.puppet.ruby_version}}
+          bundler-cache: true
+      - run: 'command -v rpm || if command -v apt-get; then sudo apt-get update; sudo apt-get install -y rpm; fi ||:'
+      - run: 'bundle exec rake parallel_spec'
+        continue-on-error: ${{matrix.puppet.experimental}}
+
+  acceptance:
+    runs-on:
+      - ubuntu-latest
+    strategy:
+      matrix:
+        node:
+          - almalinux9
+          - almalinux10
+      fail-fast: false
+    steps:
+      - name: checkout repo
+        uses: actions/checkout@v7
+      - name: setup ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: 3.4.9
+      - name: bundle install
+        run: |
+          bundle install
+      - name: Setup libvirt for Vagrant
+        run: |
+          sudo add-apt-repository ppa:evgeni/vagrant
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends vagrant vagrant-libvirt libvirt-daemon-system libvirt-daemon qemu-system-x86 qemu-utils dnsmasq
+          sudo chmod 666 /var/run/libvirt/libvirt-sock
+      - name: beaker
+        env:
+          BEAKER_HYPERVISOR: 'vagrant_libvirt'
+          VAGRANT_DEFAULT_PROVIDER: 'libvirt'
+        run: |
+          bundle exec rake beaker:suites[default,${{ matrix.node }}]

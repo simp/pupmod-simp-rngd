@@ -1,0 +1,5 @@
+---
+# On Debian and Ubuntu, upstream rng-tools is packaged as `rng-tools5`
+# (`rng-tools` and `rng-tools-debian` provide an older, incompatible fork).
+# The rng-tools5 package ships the `rngd.service` systemd unit.
+rngd::package_name: 'rng-tools5'

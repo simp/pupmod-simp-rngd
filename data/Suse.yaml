@@ -1,0 +1,5 @@
+---
+# On SLES/openSUSE, the rng-tools package (available via SUSE Package Hub on
+# SLES) ships its systemd unit as `rng-tools.service` rather than
+# `rngd.service`.
+rngd::service_name: 'rng-tools'

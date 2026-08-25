@@ -1,0 +1,7 @@
+* Tue Aug 25 2026 Steven Pritchard <steve@sicura.us> - 0.1.0
+- Initial release
+- Installs the `rng-tools` package by default (`rng-tools5` on Debian/Ubuntu)
+- Optionally manages the `rngd` service (`rng-tools` on SLES); the service is
+  left unmanaged unless `rngd::service_ensure` and/or `rngd::service_enable`
+  are set
+- Replaces `pupmod-simp-haveged`

@@ -1,0 +1,3 @@
+---
+rngd::package_name: 'rng-tools'
+rngd::service_name: 'rngd'
