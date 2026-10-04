@@ -65,7 +65,7 @@ describe 'rngd class' do
         # alone entirely, whatever state the package/preset left it in.
         it 'does not manage the rngd service' do
           result = apply_manifest_on(host, manifest, catch_failures: true)
-          expect(result.stdout).not_to match(%r{Service\[})
+          expect(result.stdout).not_to include('Service[')
         end
       end
 
