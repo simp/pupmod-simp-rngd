@@ -6,7 +6,7 @@
 
 ### Classes
 
-* [`rngd`](#rngd): This class manages the rngd entropy-gathering daemon from rng-tools.  By default, this class only installs the rng-tools package. The `rngd` 
+* [`rngd`](#rngd): This class manages the rngd entropy-gathering daemon from rng-tools.  By default, this class only installs the rng-tools package. The `rngd`
 
 ## Classes
 
@@ -79,4 +79,3 @@ Whether the rngd service should be enabled to start at boot
   service is left unmanaged
 
 Default value: `undef`
-
